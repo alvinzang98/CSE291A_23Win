@@ -44,3 +44,5 @@ env.flush_video()
 # close the environment and release resources
 env.close()
 Video("./videos/0.mp4", embed=True) # Watch our replay
+
+
