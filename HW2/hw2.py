@@ -19,7 +19,7 @@ def play(env, policy, steps=100):
         action = policy(obs)
         # step through the environment and save the new observation, reward, done, and additional information
         obs, reward, done, info = env.step(action)
-        if not IN_COLAB: env.render() # will render with a window if possible
+        env.render() # will render with a window if possible
         if done:
             # whenever an env is done, either we have succeeded or 
             # perhaps have entered a failed state. Any case, we will reset the env
