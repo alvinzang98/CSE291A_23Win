@@ -2,12 +2,17 @@ import sapien.core as sapien
 import mplib
 import numpy as np
 from sapien.utils.viewer import Viewer
+import gym
+import mani_skill2.envs
 
 class PlanningDemo():
     def __init__(self):
         self.engine = sapien.Engine()
         self.renderer = sapien.SapienRenderer()
         self.engine.set_renderer(self.renderer)
+
+        # env = gym.make("LiftCube-v0")
+        # self.scene = env
 
         scene_config = sapien.SceneConfig()
         self.scene = self.engine.create_scene(scene_config)
@@ -44,19 +49,19 @@ class PlanningDemo():
             joint.set_drive_property(stiffness=1000, damping=200)
 
         # table top
-        builder = self.scene.create_actor_builder()
-        builder.add_box_collision(half_size=[0.4, 0.4, 0.025])
-        builder.add_box_visual(half_size=[0.4, 0.4, 0.025])
-        self.table = builder.build_kinematic(name='table')
-        self.table.set_pose(sapien.Pose([0.56, 0, - 0.025]))
+        # builder = self.scene.create_actor_builder()
+        # builder.add_box_collision(half_size=[0.4, 0.4, 0.025])
+        # builder.add_box_visual(half_size=[0.4, 0.4, 0.025])
+        # self.table = builder.build_kinematic(name='table')
+        # self.table.set_pose(sapien.Pose([0.56, 0, - 0.025]))
 
         # boxes
         builder = self.scene.create_actor_builder()
         builder.add_box_collision(half_size=[0.02, 0.02, 0.06])
         builder.add_box_visual(half_size=[0.02, 0.02, 0.06], color=[1, 0, 0])
         self.red_cube = builder.build(name='red_cube')
-        self.red_cube.set_pose(sapien.Pose([0.4, 0.3, 0.06]))
-
+        self.red_cube.set_pose(sapien.Pose([-0.00268101, 0.011238, 0.02]))
+        # self.red_cube.set_pose(sapien.Pose([0.4, 0.3, 0.06]))
         builder = self.scene.create_actor_builder()
         builder.add_box_collision(half_size=[0.02, 0.02, 0.04])
         builder.add_box_visual(half_size=[0.02, 0.02, 0.04], color=[0, 1, 0])
@@ -86,10 +91,10 @@ class PlanningDemo():
     def follow_path(self, result):
         n_step = result['position'].shape[0]
         for i in range(n_step):  
-            qf = self.robot.compute_passive_force(
-                gravity=True, 
-                coriolis_and_centrifugal=True)
-            self.robot.set_qf(qf)
+            # qf = self.robot.compute_passive_force(
+            #     gravity=True, 
+            #     coriolis_and_centrifugal=True)
+            # self.robot.set_qf(qf)
             for j in range(7):
                 self.active_joints[j].set_drive_target(result['position'][i][j])
                 self.active_joints[j].set_drive_velocity_target(result['velocity'][i][j])
@@ -152,23 +157,29 @@ class PlanningDemo():
         poses = [[0.4, 0.3, 0.12, 0, 1, 0, 0],
                 [0.2, -0.3, 0.08, 0, 1, 0, 0],
                 [0.6, 0.1, 0.14, 0, 1, 0, 0]]
-        for i in range(1):
-            pose = poses[i]
-            pose[2] += 0.2
-            self.move_to_pose(pose, with_screw)
-            self.open_gripper()
-            pose[2] -= 0.12
-            self.move_to_pose(pose, with_screw)
-            self.close_gripper()
-            pose[2] += 0.12
-            self.move_to_pose(pose, with_screw)
-            pose[0] += 0.1
-            self.move_to_pose(pose, with_screw)
-            pose[2] -= 0.12
-            self.move_to_pose(pose, with_screw)
-            self.open_gripper()
-            pose[2] += 0.12
-            self.move_to_pose(pose, with_screw)
+        # pose = [-0.00268101, 0.011238, 0.02,1, 0, 0, 0]
+        pose =[0.4, 0.3, 0.12, 0, 1, 0, 0]
+        print(self.robot.get_qpos())
+        self.move_to_pose_with_RRTConnect(pose)
+        print(self.robot.get_qpos())
+        # for i in range(1):
+            # pose = poses[i]
+            # pose[2] += 0.2
+            # self.move_to_pose(pose, with_screw)
+            # self.open_gripper()
+            # pose[2] -= 0.12
+            # self.move_to_pose(pose, with_screw)
+            # self.close_gripper()
+            # pose[2] += 0.12
+            # self.move_to_pose(pose, with_screw)
+            # pose[0] += 0.1
+            # self.move_to_pose(pose, with_screw)
+            # pose[2] -= 0.12
+            # self.move_to_pose(pose, with_screw)
+            # self.open_gripper()
+            # pose[2] += 0.12
+            # self.move_to_pose(pose, with_screw)
+            
 
 if __name__ == '__main__':
     demo = PlanningDemo()
