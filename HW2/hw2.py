@@ -1,5 +1,5 @@
 import gym
-from tqdm.notebook import tqdm
+from tqdm.notebook import tqdm,trange
 import numpy as np
 import mani_skill2.envs
 import matplotlib.pyplot as plt
@@ -7,25 +7,8 @@ import sapien.core as sapien
 import mplib
 import numpy as np
 from sapien.utils.viewer import Viewer
-
 from mani_skill2.utils.wrappers import RecordEpisode
 from IPython.display import Video
-def play(env, policy, steps=100):
-    # reset environment to a clean state
-    obs = env.reset()
-
-    for i in tqdm(range(steps)):
-        # repeatedly sample actions from the policy function
-        action = policy(obs)
-        # step through the environment and save the new observation, reward, done, and additional information
-        obs, reward, done, info = env.step(action)
-        if not IN_COLAB: env.render() # will render with a window if possible
-        if done:
-            # whenever an env is done, either we have succeeded or 
-            # perhaps have entered a failed state. Any case, we will reset the env
-            # Failure states usually mean we reached a time_limit (default is 200 steps here)
-            # or the robot has entered some irrecoverable state that the environemnt defines as needing a reset
-            obs = env.reset()
 
 
 def setup_planner(robot):
@@ -45,40 +28,40 @@ def setup_planner(robot):
 
 def follow_path(robot, result,env):
     n_step = result['position'].shape[0]
-    for i in range(n_step):  
+    env.reset()
+    for i in trange(n_step):  
         qf = robot.compute_passive_force(
             gravity=True, 
             coriolis_and_centrifugal=True)
         robot.set_qf(qf)
         action = result['position'][i]
-        print(result['position'][i],action.shape)
+        action = np.concatenate((action,[0]))
+        #print(action)      #len:9
         obs, reward, done, info = env.step(action)
         if done:
           env.reset()
-        #for j in range(7):
-        #    robot.get_joints()[j].set_drive_target(result['position'][i][j])
-        #    robot.get_joints()[j].set_drive_velocity_target(result['velocity'][i][j])
-        #self.scene.step()
-        #if i % 4 == 0:
-        #    self.scene.update_render()
-        #    self.viewer.render()
+        
 
 
 def move_to_pose_with_RRT(planner,robot, pose,env):
+      
       result = planner.plan(pose, robot.get_qpos(), time_step=1/250)
+      
       if result['status'] != "Success":
-          print(result['status'])
+         
           return -1
       follow_path(robot,result,env)
       return 0
 
 def move_to_pose_with_screw(planner,robot, pose,env):
+   
     result = planner.plan_screw(pose, robot.get_qpos(), time_step=1/250)
     if result['status'] != "Success":
         result = planner.plan(pose, robot.get_qpos(), time_step=1/250)
         if result['status'] != "Success":
             print(result['status'])
             return -1 
+    
     follow_path(robot,result,env)
     return 0
 
@@ -89,6 +72,44 @@ def move_to_pose(pose, with_screw,planner,robot,env):
             return move_to_pose_with_RRT(planner,robot,pose,env)
 
 
+def open_gripper(self,robot,env):
+    for joint in robot.get_joints()[-2:]:
+        joint.set_drive_target(0.4)
+    for i in range(100): 
+        qf = robot.compute_passive_force(
+            gravity=True, 
+            coriolis_and_centrifugal=True)
+        robot.set_qf(qf)
+        action = robot.get_qpos()[:7]
+        action = np.concatenate((action,[0.4]))
+        env.step(action)
+            
+
+def close_gripper(self,robot,env):
+    for joint in robot.get_joints()[-2:]:
+        joint.set_drive_target(0)
+    for i in range(100):  
+        qf = robot.compute_passive_force(
+            gravity=True, 
+            coriolis_and_centrifugal=True)
+        robot.set_qf(qf)
+        action = robot.get_qpos()[:7]
+        action = np.concatenate((action,[0]))
+        env.step(action)
+        
+
+
+def run(self,obj_pose, with_screw,planner,robot,env):
+        
+    obj_pose[2] += 0.2
+    move_to_pose(obj_pose,with_screw,planner,robot,env)
+    open_gripper(robot,env)
+    obj_pose[2] -= 0.16
+    move_to_pose(obj_pose,with_screw,planner,robot,env)
+    close_gripper(robot,env)
+    obj_pose[2] += 0.16
+    move_to_pose(obj_pose,with_screw,planner,robot,env)
+    
 
 #main
 env_id = "LiftCube-v0"
@@ -102,25 +123,18 @@ q = env.obj.get_pose().q
 p = env.obj.get_pose().p
 pg = env.tcp.get_pose().p
 qg = env.tcp.get_pose().q
-grip_pose = np.concatenate((pg,qg),axis=0)
-obj_pose = np.concatenate((p,q),axis=0)
-target_pose = obj_pose + [0,0,0.2,0,0,0,0]
-target_grip = grip_pose + [0,1,0,0,0,0,0]
-print(env.tcp.get_pose())
-print(target_pose)
-move_to_pose(target_grip,False,planner,robot,env)
-'''
-def policy(obs):
-    action = np.zeros(env.action_space.shape)
-    action[6] = -1
-    #print(env.action_space.shape)
-    #print(action)
-    return action
-play(env, policy, steps=100)
-'''
+grip_pose = np.concatenate((pg,qg),axis=0).tolist()
+obj_pose = np.concatenate((p,q),axis=0).tolist()
+obj_pose[2] += 0.02
+
+run(obj_pose,False,planner,robot,env)
+
+
 
 # Save the video
 env.flush_video()
 # close the environment and release resources
 env.close()
 Video("./videos/0.mp4", embed=True) # Watch our replay
+
+
