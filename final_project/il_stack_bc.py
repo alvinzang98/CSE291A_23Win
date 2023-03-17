@@ -19,10 +19,8 @@ from torch.utils.data import Dataset, DataLoader
 
 from torch.utils.tensorboard import SummaryWriter
 
-#from google.colab import drive
-#drive.mount('/content/drive')
-env_id = "StackCube-v1"
-writer = SummaryWriter(f"./logs/rgbd_{env_id}_500")
+from opt import get_opts
+
 
 # loads h5 data into memory for faster access
 
@@ -252,7 +250,10 @@ def train_step(policy, obs, actions, optim, loss_fn):
 
 if __name__ == 'main':
 
-    demopath = 'stackcube_500.pkl'
+    args = get_opts()
+    
+    writer = SummaryWriter(f"./logs/rgbd_{args.env}")
+    demopath = args.traj
     dataset = ManiSkill2Dataset(demopath,extrainfo=False)
     print(f'Finish loading {demopath}')
     dataloader = DataLoader(dataset, batch_size=100, num_workers=2, pin_memory=True, drop_last=True, shuffle=True)
@@ -274,8 +275,8 @@ if __name__ == 'main':
 
     print("Start training...")
 
-    iterations = 50000
-    optim = th.optim.Adam(policy.parameters(), lr=1e-3)
+    iterations = args.iter
+    optim = th.optim.Adam(policy.parameters(), lr=args.lr)
     loss_fn = nn.MSELoss()
     best_epoch_loss = np.inf
     pbar = tqdm(dataloader, total=iterations)
@@ -299,7 +300,7 @@ if __name__ == 'main':
             pbar.update(1)
 
             # periodically save the policy
-            if steps % 1000 == 0: save_model(policy, f"stack/ckpt_{steps}.pt")
+            if steps % 1000 == 0: save_model(policy, f"{args.env}/ckpt_{steps}.pt")
             if steps >= iterations: break
         
         epoch_loss = epoch_loss / len(dataloader)
@@ -307,27 +308,27 @@ if __name__ == 'main':
         # save a new model if the average MSE loss in an epoch has improved
         if epoch_loss < best_epoch_loss:
             best_epoch_loss = epoch_loss
-            save_model(policy, "stack/ckpt_best.pt")
+            save_model(policy, f"{args.env}/ckpt_best.pt")
         
         writer.add_scalar("train/mse_loss_epoch", epoch_loss, epoch)
         epoch += 1
-    save_model(policy, "stack/ckpt_latest.pt")
+    save_model(policy, f"{args.env}/ckpt_latest.pt")
 
     print("Done")
     print("Evaluating...")
 
-    path = os.path.join('./model',"stack/ckpt_best.pt")
+    path = os.path.join('./model',f"{args.env}/ckpt_best.pt")
     policy.load_state_dict(th.load(path)["policy"])
 
-    obs_mode = "rgbd"
-    control_mode = "pd_ee_delta_pose"
-    env = gym.make(env_id, obs_mode=obs_mode, control_mode=control_mode)
+    obs_mode = args.obs
+    control_mode = args.control
+    env = gym.make(args.env, obs_mode=obs_mode, control_mode=control_mode)
     # RecordEpisode wrapper auto records a new video once an episode is completed
-    env = RecordEpisode(env, output_dir=f"logs/rgbd_{env_id}/videos")
+    env = RecordEpisode(env, output_dir=f"logs/rgbd_{args.checkpoint}/videos")
     obs = env.reset(seed=40)
 
     successes = []
-    num_episodes = 200
+    num_episodes = args.test_eps
     i = 0
     pbar = tqdm(total=num_episodes)
     while i < num_episodes:
