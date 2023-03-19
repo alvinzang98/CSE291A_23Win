@@ -1,6 +1,9 @@
 import pickle
 from torch.utils.data import Dataset, DataLoader
 import torch as th
+import numpy as np
+from tqdm import tqdm
+
 def tensor_to_numpy(x):
     # moves all tensors to numpy. This is just for SB3 as SB3 does not optimize for observations stored on the GPU.
     if th.is_tensor(x):
@@ -9,7 +12,6 @@ def tensor_to_numpy(x):
 def convert_observation(observation):
     # flattens the original observation by flattening the state dictionaries
     # and combining the rgb and depth images
-
     # image data is not scaled here and is kept as uint16 to save space
     image_obs = observation["image"]
     rgb = image_obs["base_camera"]["rgb"]
@@ -25,7 +27,6 @@ def convert_observation(observation):
             flatten_state_dict(observation["extra"]),
         ]
     )
-
     # combine the RGB and depth images
     rgbd = np.concatenate([rgb, depth, rgb2, depth2], axis=-1)
     obs = dict(rgbd=rgbd, state=state)
@@ -77,9 +78,10 @@ class ManiSkill2Dataset(Dataset):
         state = th.from_numpy(self.obs_state[idx]).float()
         return dict(rgbd=rgbd, state=state), action
     
-dataset = ManiSkill2Dataset(f"data.pkl")
-dataloader = DataLoader(dataset, batch_size=100, num_workers=1, pin_memory=True, drop_last=True, shuffle=True)
-obs, action = dataset[0]
-print("RGBD:", obs['rgbd'].shape)
-print("State:", obs['state'].shape)
-print("Action:", action.shape)
+if __name__=="__main__":
+    dataset = ManiSkill2Dataset(f"data.pkl")
+    dataloader = DataLoader(dataset, batch_size=100, num_workers=1, pin_memory=True, drop_last=True, shuffle=True)
+    obs, action = dataset[0]
+    print("RGBD:", obs['rgbd'].shape)
+    print("State:", obs['state'].shape)
+    print("Action:", action.shape)
